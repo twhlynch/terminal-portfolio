@@ -263,3 +263,59 @@ a, [url], [command] {
     font-size: 0.5em;
     white-space: pre;
 }
+
+/* MOBILE */
+#mobile {
+    position: fixed;
+    right: 0;
+    bottom: 80px;
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 10px;
+    padding: 0 5px;
+    display: flex;
+    background-color: var(--mgo);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    color: var(--fg);
+    opacity: 0;
+    pointer-events: none;
+    cursor: pointer;
+    transition: opacity 0.3s linear;
+}
+
+#keyboard {
+    position: fixed;
+    bottom: 80px;
+    right: 50%;
+    transform: translateX(50%);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    gap: 3px;
+    animation: pop-in 300ms linear;
+}
+
+#keyboard > div {
+    display: flex;
+    flex-direction: row;
+    gap: 3px;
+    justify-content: center;
+    align-items: center;
+}
+
+#keyboard > div > button {
+    background-color: var(--mgo);
+    color: var(--fg);
+    padding: 0;
+    width: 1.6em;
+    height: 1.6em;
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    font-size: 0.5em;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}

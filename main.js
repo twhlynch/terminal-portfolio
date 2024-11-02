@@ -3,6 +3,8 @@ const trayElement = document.getElementById("tray");
 const popupsElement = document.getElementById("popups");
 const pastElement = document.getElementById("past");
 const futureElement = document.getElementById("future");
+const mobileElement = document.getElementById("mobile");
+const keyboardElement = document.getElementById("keyboard");
 
 let commandHistory = [];
 let historyIndex = 0;
@@ -12,6 +14,11 @@ let minimizedPopups = [];
 let windowScale = 1;
 let draggingElement = undefined;
 let dragOffset = [0, 0];
+let keyboardCreated = false;
+let keyboardVisible = false;
+let keyboardState = "normal";
+let swipeStart = 0;
+let swipeEnterStart = 0;
 
 const popups = {
     "about": {
@@ -171,9 +178,12 @@ const aliases = {
 };
 
 window.addEventListener("keydown", (e) => {
-    let currentText = terminalElement.textContent;
-
     let key = e.key;
+    input(key, e);
+});
+
+function input(key, e=undefined) {
+    let currentText = terminalElement.textContent;
 
     if (key == "Enter")
     {
@@ -220,7 +230,7 @@ window.addEventListener("keydown", (e) => {
     updateHistory();
 
     if (key === "Backspace") {
-        if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey)
+        if (e?.altKey || e?.ctrlKey || e?.metaKey || e?.shiftKey)
         {
             currentText = "";
         }
@@ -246,7 +256,7 @@ window.addEventListener("keydown", (e) => {
     } else {
         terminalElement.classList.remove("valid");
     }
-});
+}
 
 function generatePopup(popup) {
     const { type, title, text } = popup;
@@ -341,6 +351,16 @@ function generatePopup(popup) {
         } else {
             draggingElement = container;
             dragOffset = [e.clientX - container.offsetLeft, e.clientY - container.offsetTop];
+        }
+    });
+    header.addEventListener("touchstart", (e) => {
+        container.style.zIndex = zIndex;
+        zIndex++;
+        if (minimizedPopups.includes(container)) {
+            showPopup(container);
+        } else {
+            draggingElement = container;
+            dragOffset = [e.touches[0].clientX - container.offsetLeft, e.touches[0].clientY - container.offsetTop];
         }
     });
 
@@ -463,14 +483,129 @@ function setup() {
     updateHistory();
 }
 
+function showKeyboardPopup() {
+    mobileElement.style.opacity = "1";
+    mobileElement.style.pointerEvents = "all";
+}
+
+function createKeyboard() {
+    keyboardElement.innerHTML = "";
+    const keys = [
+        ["`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "Backspace"],
+        ["Tab", "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "[", "]", "\\"],
+        ["a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "'", "Enter"],
+        ["z", "x", "c", "v", "b", "n", "m", ",", ".", "/"],
+        ["CapsLock", "Shift", " ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]
+    ];
+    const shiftKeys = [
+        ["~", "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "_", "+", "Backspace"],
+        ["Tab", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "{", "}", "|"],
+        ["A", "S", "D", "F", "G", "H", "J", "K", "L", ":", "\"", "Enter"],
+        ["Z", "X", "C", "V", "B", "N", "M", "<", ">", "?"],
+        ["CapsLock", "Shift", " ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]
+    ];
+    const charMap = {
+        "Backspace": "⌫",
+        "Tab": "→",
+        " ": "␣",
+        "Enter": "⏎",
+        "CapsLock": "aA",
+        "Shift": "⇧",
+        "Control": "⌃",
+        "Alt": "⌥",
+        "Meta": "⌘",
+        "ArrowUp": "▲",
+        "ArrowDown": "▼",
+        "ArrowLeft": "◄",
+        "ArrowRight": "►"
+    };
+    const widths = {
+        " ": 4,
+        "Backspace": 2,
+        "Shift": 2.5,
+        "Enter": 3,
+        "Tab": 2,
+    };
+
+    for (let row = 0; row < keys.length; row++) {
+        const rowElement = document.createElement("div");
+        for (let col = 0; col < keys[row].length; col++) {
+            const keyElement = document.createElement("button");
+            let key = keys[row][col];
+            if (keyboardState == "shift" || keyboardState == "caps") {
+                key = shiftKeys[row][col];
+            }
+            keyElement.setAttribute("data-key", key);
+            if (key in widths) {
+                keyElement.style.paddingInline = widths[key] / 2 + "em";
+            }
+            let keyVisual = key;
+            if (key in charMap) {
+                keyVisual = charMap[key];
+            }
+            keyElement.textContent = keyVisual;
+            keyElement.addEventListener("touchstart", (e) => {
+                e.preventDefault();
+
+                if (key == "Shift") {
+                    if (keyboardState == "normal") {
+                        keyboardState = "shift";
+                        createKeyboard();
+                    } else if (keyboardState == "shift") {
+                        keyboardState = "normal";
+                        createKeyboard();
+                    }
+                } else if (key == "CapsLock") {
+                    if (keyboardState == "normal") {
+                        keyboardState = "caps";
+                        createKeyboard();
+                    } else if (keyboardState == "caps") {
+                        keyboardState = "normal";
+                        createKeyboard();
+                    }
+                } else {
+                    if (keyboardState == "shift") {
+                        keyboardState = "normal";
+                        createKeyboard();
+                    }
+                    input(key);
+                }
+            });
+            rowElement.appendChild(keyElement);
+        }
+        keyboardElement.appendChild(rowElement);
+    }
+    
+    keyboardCreated = true;
+}
+
 document.addEventListener("mouseup", () => {
     draggingElement = undefined;
+});
+document.addEventListener("touchend", (e) => {
+    draggingElement = undefined;
+
+    if (e.target == document.body) {
+        if (swipeStart - e.changedTouches[0].clientY < -100) {
+            input("ArrowUp");
+        } else if (swipeStart - e.changedTouches[0].clientY > 100) {
+            input("ArrowDown");
+        } else if (swipeEnterStart - e.changedTouches[0].clientX < -window.innerWidth / 3) {
+            input("Enter");
+        }
+    }
 });
 
 document.addEventListener("mousemove", (e) => {
     if (draggingElement) {
         draggingElement.style.left = e.clientX - dragOffset[0] + "px";
         draggingElement.style.top = e.clientY - dragOffset[1] + "px";
+    }
+});
+document.addEventListener("touchmove", (e) => {
+    if (draggingElement) {
+        draggingElement.style.left = e.touches[0].clientX - dragOffset[0] + "px";
+        draggingElement.style.top = e.touches[0].clientY - dragOffset[1] + "px";
     }
 });
 
@@ -481,6 +616,33 @@ document.addEventListener("click", (e) => {
     } else if (e.target.getAttribute("command")) {
         const command = e.target.getAttribute("command");
         execute(command);
+    }
+});
+
+document.addEventListener("touchstart", (e) => {
+    showKeyboardPopup();
+
+    if (e.target == document.body) {
+        swipeStart = e.touches[0].clientY;
+        swipeEnterStart = e.touches[0].clientX;
+    }
+});
+
+mobileElement.addEventListener("touchstart", () => {
+    if (!keyboardVisible) {
+        keyboardElement.style.display = "flex";
+        keyboardElement.style.animationName = "pop-in";
+        keyboardVisible = true;
+    
+        if (!keyboardCreated) {
+            createKeyboard();
+        }
+    } else {
+        keyboardElement.style.animationName = "pop-out";
+        keyboardVisible = false;
+        setTimeout(() => {
+            keyboardElement.style.display = "none";
+        }, 299);
     }
 });
 
